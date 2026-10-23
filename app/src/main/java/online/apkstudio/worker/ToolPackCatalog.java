@@ -28,6 +28,14 @@ final class ToolPackCatalog {
             : "! Проверенный пакет инструментов находится в APK, но ещё не установлен.";
     }
 
+    static File platformJar(Context context) {
+        if (!APPROVED_SHA256.matches("[a-f0-9]{64}")) return null;
+        File folder = new File(new File(context.getFilesDir(), "verified-toolpacks"), APPROVED_SHA256);
+        if (!VerifiedToolPack.isInstalled(folder, APPROVED_SHA256)) return null;
+        File jar = new File(folder, "platform/android.jar");
+        return jar.isFile() ? jar : null;
+    }
+
     static File installBundled(Context context) throws Exception {
         if (!APPROVED_SHA256.matches("[a-f0-9]{64}")) {
             throw new IllegalStateException("Проверенный пакет инструментов ещё не опубликован. " +
