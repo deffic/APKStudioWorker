@@ -148,9 +148,10 @@ final class ProjectStore {
     }
 
     static String toolchainStatus(Context context) {
-        return LocalToolchain.nativeAapt2(context) == null
+        String aapt = LocalToolchain.nativeAapt2(context) == null
             ? "Проверка архитектуры и проекта готова. Нативный AAPT2 ещё не встроен. Компиляторы Kotlin / Compose, D8 и подпись APK — в разработке."
             : "AAPT2 обнаружен. Нажми «Проверить сборочный движок», чтобы протестировать ресурсы. Полная сборка APK пока не поддерживается.";
+        return aapt + "\n" + ToolPackCatalog.status(context);
     }
 
     static boolean hasToolchain(Context context) {
