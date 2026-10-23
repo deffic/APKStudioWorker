@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-      # One authorized v0.2.1 test build. Remove after this run.
-      - feature/ondevice-preflight-v02
     paths:
       - 'app/**'
       - 'build.gradle'
