@@ -40,6 +40,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Verify GitHub ZIP importer without gradlew
+        run: >-
+          java scripts/RunGradleProjectLocatorTests.java
+          app/src/main/java/online/apkstudio/worker/GradleProjectLocator.java
+          scripts/TestGradleProjectLocator.java
+      - name: Check Android Java source syntax
+        run: java scripts/ValidateJava.java app/src/main/java/online/apkstudio/worker/*.java
       - name: Prepare verified ARM64 AAPT2 for on-device resource compilation
         run: bash scripts/prepare_aapt2.sh
       - name: Build bootstrap APK
@@ -47,6 +54,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: APK-Studio-Worker-v0.2-debug
+          name: APK-Studio-Worker-v0.2.1-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
