@@ -83,6 +83,12 @@ final class ResourceBuildStage {
             throw new IOException("Не удалось создать временные каталоги сборки.");
         }
 
+        // Modern Android Gradle Plugin sources normally omit manifest@package.
+        // Generate a temporary merged-package equivalent for standalone AAPT2.
+        BuildProfile profile = BuildProfile.inspect(projectRoot);
+        File linkedManifest = ManifestPackagePreparer.prepare(
+            manifest, new File(work, "AndroidManifest.xml"), profile.applicationId);
+
         StringBuilder log = new StringBuilder();
         for (File resource : resources) {
             List<String> command = List.of(aapt2.getAbsolutePath(), "compile", resource.getAbsolutePath(),
@@ -98,7 +104,13 @@ final class ResourceBuildStage {
         List<String> command = new ArrayList<>();
         Collections.addAll(command, aapt2.getAbsolutePath(), "link", "-o",
             resourceApk.getAbsolutePath(), "-I", androidJar.getAbsolutePath(),
-            "--manifest", manifest.getAbsolutePath(), "--java", generated.getAbsolutePath());
+            "--manifest", linkedManifest.getAbsolutePath(), "--java", generated.getAbsolutePath());
+        // R.java belongs to the Gradle namespace, which can differ from the
+        // final manifest's applicationId (as it does in TradingHelperAI).
+        if (ManifestPackagePreparer.isPackage(profile.namespace)) {
+            command.add("--custom-package");
+            command.add(profile.namespace);
+        }
         for (File flat : flats) {
             command.add("-R");
             command.add(flat.getAbsolutePath());
