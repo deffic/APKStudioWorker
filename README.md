@@ -29,7 +29,7 @@ The owner-only pairing code includes a device bearer token and the Site's servic
 
 ## Import
 
-Use Android's system picker to choose a ZIP containing `TradingHelperAI/gradlew`, either at archive root or under one top-level directory. The importer limits file count, total decompressed bytes and path traversal. Importing another ZIP creates a *new directory*; it never silently replaces the old project.
+Use Android's system picker to choose a GitHub **Download ZIP** of `TradingHelperAI`, either at archive root or under one top-level directory. A valid project needs `settings.gradle` or `settings.gradle.kts` and a `build.gradle` or `build.gradle.kts` at root or in a module; **`gradlew` is optional**. The importer limits file count, total decompressed bytes and path traversal. Importing another ZIP creates a *new directory*; it never silently replaces the old project. The installed v0.2 APK still uses the older import rule: this fix is source-only until another owner-authorized build.
 
 ## First Android build (one-time GitHub Actions bootstrap)
 
@@ -60,6 +60,7 @@ java scripts/RunToolPackTests.java app/src/main/java/online/apkstudio/worker/Ver
 java scripts/RunSourcePatchTests.java app/src/main/java/online/apkstudio/worker/SourcePatchTransaction.java scripts/TestSourcePatchTransaction.java
 java scripts/RunResourceBuildTests.java app/src/main/java/online/apkstudio/worker/ResourceBuildStage.java scripts/TestResourceBuildStage.java
 java scripts/RunAapt2VerificationTests.java scripts/VerifyAapt2.java scripts/TestVerifyAapt2.java /path/to/pinned/aapt2-arm64-v8a
+java scripts/RunGradleProjectLocatorTests.java app/src/main/java/online/apkstudio/worker/GradleProjectLocator.java scripts/TestGradleProjectLocator.java
 ```
 
 Architecture researched against the [Android 10 executable-file restrictions](https://developer.android.com/about/versions/10/behavior-changes-10) and independent [AIDE-OS toolchain research](https://github.com/sanjarAmin/AIDE-OS/tree/main/tools). No third-party IDE code has been copied into APK Studio Worker, and any future dependency must comply with its license.
