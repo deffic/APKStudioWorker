@@ -121,8 +121,12 @@ public final class WorkerService extends Service {
             }
             File project = ProjectStore.activeRoot(this);
             if (project == null) throw new IllegalStateException("Импортируй ZIP с исходниками TradingHelperAI.");
+            // Inspect imported code before applying remote edits. Never alter a project
+            // when a compatible local build engine cannot compile its languages.
+            BuildProfile profile = BuildProfile.inspect(project);
             if (!ProjectStore.hasToolchain(this)) {
-                throw new IllegalStateException("Движок Gradle на Android пока не установлен. APK Studio Worker v0.1 поддерживает сопряжение и диагностику, но ещё не компиляцию.");
+                throw new IllegalStateException("Локальная сборка не готова.\n" + profile.describe() +
+                    "\n" + LocalToolchain.readiness(this, profile));
             }
             update("Сборка " + id.substring(0, 8) + "…");
             JSONArray edits = job.optJSONArray("edits");
