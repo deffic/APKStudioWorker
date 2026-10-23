@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.ZipFile;
 
 /** First stage of a phone-local build pipeline: detect and exercise native AAPT2. */
 final class LocalToolchain {
@@ -23,6 +24,21 @@ final class LocalToolchain {
         if (folder == null) return null;
         File binary = new File(folder, AAPT2);
         return binary.isFile() && binary.canExecute() ? binary : null;
+    }
+
+    /** For resource linking only, Android's read-only framework table is an APK -I input. */
+    static File resourcePlatform(Context context, BuildProfile profile) {
+        File pinned = ToolPackCatalog.platformJar(context);
+        if (pinned != null) return pinned;
+        // Do not silently substitute an older OS framework for a newer compileSdk.
+        if (profile == null || profile.compileSdk < 1 || Build.VERSION.SDK_INT < profile.compileSdk) {
+            return null;
+        }
+        File system = new File("/system/framework/framework-res.apk");
+        if (!system.isFile() || !system.canRead()) return null;
+        try (ZipFile zip = new ZipFile(system)) {
+            return zip.getEntry("resources.arsc") == null ? null : system;
+        } catch (Exception ignored) { return null; }
     }
 
     static String readiness(Context context, BuildProfile project) {
@@ -43,6 +59,13 @@ final class LocalToolchain {
         message.append(nativeAapt2(context) == null
             ? "\n✕ AAPT2 пока не включён в APK Studio Worker."
             : "\n✓ Исполняемый AAPT2 найден в библиотеке приложения.");
+
+        File resourcePlatform = resourcePlatform(context, project);
+        message.append(resourcePlatform == null
+            ? "\n✕ Нет совместимой Android-платформы для AAPT2 (android.jar или framework-res.apk)."
+            : resourcePlatform.getName().equals("framework-res.apk")
+                ? "\n✓ Системные Android-ресурсы доступны для AAPT2 (диагностический режим)."
+                : "\n✓ Проверенный android.jar доступен для связывания ресурсов.");
 
         message.append("\n✕ In-process компилятор Java / D8 / apksig ещё не подключены.");
         if (project != null && project.needsKotlin()) {
