@@ -19,6 +19,9 @@ jobs:
   bootstrap:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout standalone APK Studio Worker
         uses: actions/checkout@v4
@@ -28,7 +31,11 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Install required Android platform
-        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+        shell: bash
+        run: |
+          SDK_MANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          test -x "$SDK_MANAGER"
+          "$SDK_MANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
