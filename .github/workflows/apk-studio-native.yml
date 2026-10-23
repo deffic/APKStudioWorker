@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/ondevice-preflight-v02
     paths:
       - 'app/**'
       - 'build.gradle'
