@@ -9,7 +9,8 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -104,47 +105,20 @@ final class ProjectStore {
         if (!jobId.matches("[a-f0-9-]{36}") || edits.length() > 30) {
             throw new IllegalArgumentException("Неверный пакет правок.");
         }
-        long total = 0;
+        List<SourcePatchTransaction.Edit> changes = new ArrayList<>();
         for (int i = 0; i < edits.length(); i++) {
             JSONObject edit = edits.getJSONObject(i);
-            String relative = edit.getString("path");
-            String content = edit.getString("content");
-            if (relative.length() > 180 || !relative.matches("[A-Za-z0-9_./+\\-]+") ||
-                relative.startsWith("/") || relative.contains("//")) throw new IllegalArgumentException("Неверный путь правки.");
-            for (String part : relative.split("/")) {
-                if (part.isBlank() || part.equals(".") || part.equals("..") || part.equals(".git") ||
-                    part.equals(".gradle") || part.equals("build") || part.equals(".apk-studio-backups")) {
-                    throw new IllegalArgumentException("Защищённый путь правки.");
-                }
-            }
-            String basename = relative.substring(relative.lastIndexOf('/') + 1);
-            if (basename.equals("local.properties") || basename.equals("gradle.properties") ||
-                basename.matches(".*\\.(jks|keystore|pem|key)")) throw new IllegalArgumentException("Защищённый файл.");
-            byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
-            total += bytes.length;
-            if (total > 200_000) throw new IllegalArgumentException("Слишком большой пакет правок.");
-            File target = new File(project, relative);
-            if (!target.getCanonicalPath().startsWith(project.getCanonicalPath() + File.separator)) {
-                throw new IllegalArgumentException("Путь выходит за пределы проекта.");
-            }
-            if (target.exists()) {
-                File backup = new File(context.getFilesDir(), "backups/" + jobId + "/" + relative);
-                if (!backup.getParentFile().mkdirs() && !backup.getParentFile().isDirectory()) {
-                    throw new IllegalStateException("Не удалось создать резервную копию.");
-                }
-                try (java.io.FileInputStream from = new java.io.FileInputStream(target);
-                     FileOutputStream to = new FileOutputStream(backup)) {
-                    byte[] tmp = new byte[8192];
-                    int length;
-                    while ((length = from.read(tmp)) != -1) to.write(tmp, 0, length);
-                }
-            }
-            if (!target.getParentFile().mkdirs() && !target.getParentFile().isDirectory()) {
-                throw new IllegalStateException("Не создан каталог правки.");
-            }
-            try (FileOutputStream file = new FileOutputStream(target)) { file.write(bytes); }
+            changes.add(new SourcePatchTransaction.Edit(edit.getString("path"), edit.getString("content")));
         }
-        return "Применено файлов: " + edits.length();
+        File backups = new File(context.getFilesDir(), "backups");
+        if (!backups.isDirectory() && !backups.mkdirs()) throw new IllegalStateException("Не создан каталог резервных копий.");
+        int changed = SourcePatchTransaction.apply(project, new File(backups, jobId), changes);
+        return "Применено файлов (с возможностью отката): " + changed;
+    }
+
+    static void rollbackEdits(Context context, File project, String jobId) throws Exception {
+        if (!jobId.matches("[a-f0-9-]{36}")) throw new IllegalArgumentException("Неверный идентификатор задания.");
+        SourcePatchTransaction.rollback(project, new File(context.getFilesDir(), "backups/" + jobId));
     }
 
     static String toolchainStatus(Context context) {
