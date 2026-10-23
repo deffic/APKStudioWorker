@@ -18,4 +18,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    packaging {
+        jniLibs {
+            // Android only exposes a packaged executable in nativeLibraryDir
+            // when native files are extracted to disk during installation.
+            useLegacyPackaging = true
+        }
+    }
 }
