@@ -114,7 +114,8 @@ public final class MainActivity extends Activity {
         engineCard.addView(label("3 · ДВИЖОК СБОРКИ"));
         toolchainText = description("Проверяем инструменты Android…");
         engineCard.addView(toolchainText);
-        engineCard.addView(description("Версия 0.1: безопасная связь, импорт исходников и диагностика. Установка совместимого Android JDK / SDK / AAPT2 будет следующим этапом."));
+        engineCard.addView(description("Локальная проверка не загружает исходники на сервер. Для Kotlin и Compose требуется отдельная компиляция на телефоне."));
+        engineCard.addView(action("Проверить сборочный движок", MINT, NAVY, v -> inspectBuildEnvironment()));
         root.addView(engineCard);
 
         LinearLayout controlCard = card();
@@ -141,6 +142,27 @@ public final class MainActivity extends Activity {
             refresh();
             alert("Телефон привязан. Теперь можно включить связь с APK Studio.");
         } catch (Exception failure) { alert("Не удалось подключить: " + failure.getMessage()); }
+    }
+
+    private void inspectBuildEnvironment() {
+        toolchainText.setText("Проверяем проект и инструменты на телефоне…");
+        jobs.execute(() -> {
+            String report;
+            try {
+                File project = ProjectStore.activeRoot(this);
+                BuildProfile profile = project == null ? null : BuildProfile.inspect(project);
+                report = (profile == null ? "Проект ещё не импортирован.\n\n"
+                    : profile.describe() + "\n\n") + LocalToolchain.readiness(this, profile);
+                if (LocalToolchain.nativeAapt2(this) != null) {
+                    try { report += "\n\n" + LocalToolchain.aapt2SelfTest(this); }
+                    catch (Exception error) { report += "\n\nОшибка теста AAPT2: " + error.getMessage(); }
+                }
+            } catch (Exception error) {
+                report = "Не удалось проверить сборку: " + error.getMessage();
+            }
+            String completedReport = report;
+            runOnUiThread(() -> { refresh(); alert(completedReport); });
+        });
     }
 
     private void disconnect() {
