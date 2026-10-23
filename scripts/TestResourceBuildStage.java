@@ -38,6 +38,44 @@ public final class TestResourceBuildStage {
             List<String> link = mock.calls.get(2);
             require(link.contains("link") && link.contains("--java") && link.contains("-I"), "link args");
             require(link.stream().filter("-R"::equals).count() == 2, "two .flat inputs");
+            require(!link.get(link.indexOf("--manifest") + 1).equals(
+                project.resolve("app/src/main/AndroidManifest.xml").toString()),
+                "link uses a temporary manifest, not the original source");
+
+            // TradingHelperAI's modern manifest has no package attribute.
+            // Its application ID and R.java namespace are deliberately distinct.
+            Path manifestPath = project.resolve("app/src/main/AndroidManifest.xml");
+            Files.writeString(manifestPath,
+                "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">" +
+                "<application android:label=\"Example\"/></manifest>", StandardCharsets.UTF_8);
+            Files.writeString(project.resolve("app/build.gradle.kts"),
+                "android { namespace = \"com.example.tradinghelper\"; " +
+                "defaultConfig { applicationId = \"com.example.tradinghelper.preview\" } }",
+                StandardCharsets.UTF_8);
+            MockRunner modern = new MockRunner();
+            ResourceBuildStage.Result modernResult = ResourceBuildStage.compileAndLink(
+                project.toFile(), nativeTool.toFile(), androidJar.toFile(),
+                temp.resolve("modern-job").toFile(), modern);
+            List<String> modernLink = modern.calls.get(2);
+            require(modernResult.compiledResourceCount == 2, "modern resources compile");
+            require(modernLink.contains("--custom-package") && modernLink.get(
+                modernLink.indexOf("--custom-package") + 1).equals("com.example.tradinghelper"),
+                "generated R.java uses Gradle namespace");
+            String prepared = Files.readString(temp.resolve("modern-job/AndroidManifest.xml"));
+            require(prepared.contains("package=\"com.example.tradinghelper.preview\""),
+                "temporary manifest receives applicationId");
+            require(!Files.readString(manifestPath).contains("package="),
+                "original manifest remains unchanged");
+            require(Files.isRegularFile(modernResult.generatedJava.toPath().resolve(
+                "com/example/tradinghelper/R.java")), "R.java in namespace folder");
+
+            Files.writeString(manifestPath,
+                "<!DOCTYPE manifest [<!ENTITY bad SYSTEM \"file:///etc/passwd\">]>" +
+                "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">" +
+                "<application android:label=\"&bad;\"/></manifest>");
+            expectFailure(() -> ResourceBuildStage.compileAndLink(project.toFile(), nativeTool.toFile(),
+                androidJar.toFile(), temp.resolve("rejected-doctype").toFile(), new MockRunner()),
+                "external XML entity in manifest");
 
             // Never let a temporary compiler folder overwrite imported source.
             expectFailure(() -> ResourceBuildStage.compileAndLink(project.toFile(), nativeTool.toFile(),
@@ -68,7 +106,10 @@ public final class TestResourceBuildStage {
                 Path output = Path.of(command.get(command.indexOf("-o") + 1));
                 Files.write(output, new byte[]{3});
                 Path generated = Path.of(command.get(command.indexOf("--java") + 1));
-                Path folder = generated.resolve("online/apkstudio/example");
+                String namespace = command.contains("--custom-package")
+                    ? command.get(command.indexOf("--custom-package") + 1)
+                    : "online.apkstudio.example";
+                Path folder = generated.resolve(namespace.replace('.', '/'));
                 Files.createDirectories(folder);
                 Files.writeString(folder.resolve("R.java"), "public final class R {}", StandardCharsets.UTF_8);
             } else throw new IOException("Unexpected command");
