@@ -30,6 +30,7 @@ public final class TestBuildProfile {
             check(profile.resourceFiles == 1, "resource count");
             check(profile.javaFiles == 0, "Java file count");
             check(profile.applicationId.equals("example.demo"), "app id");
+            check(profile.namespace.equals("example.test"), "namespace differs from app id");
             check(profile.minSdk == 26 && profile.compileSdk == 35, "SDK versions");
             check(profile.gradleWrapper, "wrapper must be detected");
             check(profile.modules.size() == 1 && profile.modules.get(0).equals("app"), "module");
@@ -44,6 +45,7 @@ public final class TestBuildProfile {
             check(!profile.needsKotlin() && !profile.compose, "Java-only profile");
             check(profile.javaFiles == 1 && profile.kotlinFiles == 0, "Java file count");
             check(profile.applicationId.equals("example.onlyjava"), "namespace fallback");
+            check(profile.namespace.equals("example.onlyjava"), "namespace for Java project");
 
             System.out.println("BuildProfile tests: OK");
         } finally {
