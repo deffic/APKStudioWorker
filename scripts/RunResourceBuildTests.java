@@ -13,8 +13,10 @@ class RunResourceBuildTests {
         if (compiler == null) throw new IllegalStateException("JavaCompiler unavailable");
         Path classes = Files.createTempDirectory("apkstudio-resource-classes-");
         try {
+            Path module = Path.of(args[0]).getParent();
             int result = compiler.run(null, System.out, System.err, "--release", "17", "-d",
-                classes.toString(), args[0], args[1]);
+                classes.toString(), args[0], module.resolve("BuildProfile.java").toString(),
+                module.resolve("ManifestPackagePreparer.java").toString(), args[1]);
             if (result != 0) throw new IllegalStateException("Source compilation failed: " + result);
             try (URLClassLoader loader = new URLClassLoader(new URL[]{classes.toUri().toURL()})) {
                 Class<?> test = loader.loadClass("online.apkstudio.worker.TestResourceBuildStage");
