@@ -148,7 +148,9 @@ final class ProjectStore {
     }
 
     static String toolchainStatus(Context context) {
-        return "Движок не включён в v0.1. Совместимые JDK / Gradle / AAPT2 должны быть встроены в APK: Android 10+ запрещает запуск исполняемых файлов из записываемой папки приложения.";
+        return LocalToolchain.nativeAapt2(context) == null
+            ? "Проверка архитектуры и проекта готова. Нативный AAPT2 ещё не встроен. Компиляторы Kotlin / Compose, D8 и подпись APK — в разработке."
+            : "AAPT2 обнаружен. Нажми «Проверить сборочный движок», чтобы протестировать ресурсы. Полная сборка APK пока не поддерживается.";
     }
 
     static boolean hasToolchain(Context context) {
