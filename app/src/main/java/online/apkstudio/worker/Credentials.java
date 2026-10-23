@@ -10,7 +10,6 @@ import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
-import java.security.SecureRandom;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -44,10 +43,14 @@ final class Credentials {
 
     static void save(Context context, Credentials value) throws Exception {
         SecretKey key = getKey();
-        byte[] nonce = new byte[12];
-        new SecureRandom().nextBytes(nonce);
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, nonce));
+        // AndroidKeyStore GCM keys require a provider-generated IV for encryption.
+        // Supplying our own IV throws "Caller-provided IV not permitted" on Android.
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] nonce = cipher.getIV();
+        if (nonce == null || nonce.length != 12) {
+            throw new IllegalStateException("Не удалось создать защищённый код шифрования.");
+        }
         JSONObject data = new JSONObject();
         data.put("token", value.token);
         data.put("service", value.service);
