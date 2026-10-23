@@ -69,16 +69,9 @@ final class ProjectStore {
             }
         }
 
-        File actual = destination;
-        if (!new File(actual, "gradlew").isFile()) {
-            File[] children = destination.listFiles(File::isDirectory);
-            if (children != null && children.length == 1 && new File(children[0], "gradlew").isFile()) {
-                actual = children[0];
-            }
-        }
-        if (!new File(actual, "gradlew").isFile()) {
-            throw new IllegalStateException("В ZIP не найден Gradle-проект с файлом gradlew.");
-        }
+        // GitHub's source ZIP can contain a valid Android/Gradle project even
+        // when the optional Gradle wrapper script was not committed.
+        File actual = GradleProjectLocator.findRoot(destination);
         if (actual != destination) {
             // Preserve the imported archive; use its nested root as the active project.
             context.getSharedPreferences("project", Context.MODE_PRIVATE).edit()
@@ -98,7 +91,7 @@ final class ProjectStore {
         if (nested.isEmpty()) return root;
         if (nested.contains("/") || nested.contains("\\") || nested.equals("..")) return null;
         File folder = new File(root, nested);
-        return new File(folder, "gradlew").isFile() ? folder : null;
+        return GradleProjectLocator.isProjectRoot(folder) ? folder : null;
     }
 
     static String applyEdits(Context context, File project, String jobId, JSONArray edits) throws Exception {
