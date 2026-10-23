@@ -131,7 +131,16 @@ public final class WorkerService extends Service {
             update("Сборка " + id.substring(0, 8) + "…");
             JSONArray edits = job.optJSONArray("edits");
             String applied = ProjectStore.applyEdits(this, project, id, edits == null ? new JSONArray() : edits);
-            String output = gradleBuild(project);
+            String output;
+            try {
+                output = gradleBuild(project);
+            } catch (Exception compilationError) {
+                if (edits != null && edits.length() > 0) {
+                    try { ProjectStore.rollbackEdits(this, project, id); }
+                    catch (Exception backupError) { compilationError.addSuppressed(backupError); }
+                }
+                throw compilationError;
+            }
             api.log(id, applied + "\n" + shorten(output, 12_000));
             File apk = findApk(project);
             if (apk == null) throw new IOException("Gradle не создал APK в outputs/apk/debug.");
