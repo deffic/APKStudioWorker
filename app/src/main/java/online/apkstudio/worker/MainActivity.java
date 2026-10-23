@@ -116,6 +116,8 @@ public final class MainActivity extends Activity {
         engineCard.addView(toolchainText);
         engineCard.addView(description("Локальная проверка не загружает исходники на сервер. Для Kotlin и Compose требуется отдельная компиляция на телефоне."));
         engineCard.addView(action("Проверить сборочный движок", MINT, NAVY, v -> inspectBuildEnvironment()));
+        engineCard.addView(action("Проверить ресурсы проекта (AAPT2)", Color.rgb(45, 67, 86), Color.WHITE,
+            v -> checkProjectResources()));
         engineCard.addView(action("Проверить пакет компиляторов", Color.rgb(45, 67, 86), Color.WHITE,
             v -> inspectCompilerPack()));
         root.addView(engineCard);
@@ -179,6 +181,32 @@ public final class MainActivity extends Activity {
                 result = failure.getMessage() + "\n\n" + ToolPackCatalog.status(this);
             }
             String message = result;
+            runOnUiThread(() -> { refresh(); alert(message); });
+        });
+    }
+
+    private void checkProjectResources() {
+        toolchainText.setText("Проверяем ресурсы Android-проекта…");
+        jobs.execute(() -> {
+            String report;
+            try {
+                File project = ProjectStore.activeRoot(this);
+                File aapt2 = LocalToolchain.nativeAapt2(this);
+                if (project == null) throw new IllegalStateException("Сначала импортируй ZIP проекта TradingHelperAI.");
+                BuildProfile profile = BuildProfile.inspect(project);
+                File platform = LocalToolchain.resourcePlatform(this, profile);
+                if (aapt2 == null || platform == null) {
+                    throw new IllegalStateException("Компиляция ресурсов станет доступна после " +
+                        "включения AAPT2 и совместимой Android-платформы.\n\n" +
+                        LocalToolchain.readiness(this, profile));
+                }
+                File work = new File(getCacheDir(), "resources-" + java.util.UUID.randomUUID());
+                ResourceBuildStage.Result result = ResourceBuildStage.compileAndLink(
+                    project, aapt2, platform, work, new BoundedProcessRunner(aapt2));
+                report = result.summary() + "\n\nФайлы проверки: " + result.resourceApk.getName() +
+                    "\nЛог: " + result.log.substring(0, Math.min(result.log.length(), 5000));
+            } catch (Exception error) { report = "Проверка ресурсов: " + error.getMessage(); }
+            String message = report;
             runOnUiThread(() -> { refresh(); alert(message); });
         });
     }
