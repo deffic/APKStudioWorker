@@ -1,0 +1,9 @@
+ReVanced AAPT2
+Upstream source: https://github.com/ReVanced/aapt2
+Source release: v1.1.0 (2026-04-05)
+Binary asset: aapt2-arm64-v8a
+SHA-256: 7e5ae2e1f62fc24cab14072555ffd0a1a7e1ce27e82cc1008967b835b6d8df5b
+Upstream license: GNU GPL-3.0
+The full upstream LICENSE is embedded by scripts/prepare_aapt2.sh at bootstrap.
+This separately invoked executable is used solely for Android resource processing.
+It is not loaded into the APK Studio Worker Java process as a shared library.
