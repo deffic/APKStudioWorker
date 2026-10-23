@@ -1,10 +1,12 @@
-# APK Studio Worker — Android v0.1
+# APK Studio Worker — Android
 
 Personal, source-visible Android client for Игорь's private APK Studio.
 
 **Current scope:** secure pairing; encrypted credentials in Android Keystore; connection to a single, fixed HTTPS origin; visible foreground polling with a stop button; guarded ZIP import into app-private storage; source-file backups; build job protocol and log/APK upload support.
 
-**Important limitation:** v0.1 is a *connection and diagnostic build*, **not a complete on-device APK compiler**. `WorkerService` deliberately fails jobs with an explicit error until we port and package an appropriate Android-native JDK / Gradle / AAPT2 toolchain **inside the APK**. Android 10 and newer prohibit executing downloaded binaries from writable app-home storage (Android's W^X restriction). Merely downloading a conventional Linux JDK/SDK into `files/toolchain` is not a viable solution on modern Android. No third-party IDE is required for the app itself. We must design and validate native code packaging before claiming autonomous APK compilation.
+**Important limitation:** the installed v0.1 APK is a *connection and diagnostic build*, **not a complete on-device APK compiler**. Development for the next update adds a source-only project profiler and a native AAPT2 smoke-test harness. This does **not** yet compile installable APKs. The app deliberately refuses build jobs without a verified, working local toolchain. Android 10 and newer prohibit executing downloaded binaries from writable app-home storage (Android's W^X restriction). Merely downloading a conventional Linux JDK/SDK into `files/toolchain` is not viable on modern Android.
+
+The private `TradingHelperAI` Android app uses **Kotlin + Jetpack Compose**, so ECJ (Java-only) is not a sufficient solution. A full solution needs Kotlin's compiler plus Compose compiler plugin, dependency resolution, Android resource packaging, D8, signing, and hardware testing. An Android-native `aapt2` should be embedded in `nativeLibraryDir` as a packaged `.so`, where Android permits execution; the app must not download and execute untrusted scripts/binaries from writable directories.
 
 ## Permissions
 
@@ -37,9 +39,21 @@ The first debug APK uses an ephemeral GitHub runner's debug signing key and cann
 
 ## Next milestone
 
-- Evaluate Android-native OpenJDK/Gradle/AAPT2 distributions and license obligations.
+- **In progress, source only:** `BuildProfile.inspect` safely scans imported Gradle project modules, detects Kotlin/Compose and SDK versions without running Gradle scripts. `LocalToolchain` checks phone ABI/API and includes a bounded AAPT2 resource smoke test that will run once the native executable is packaged. The user can open this report with **Проверить сборочный движок**; jobs still refuse to build until a compiler actually works.
+- Port/package a verified Android ARM64 AAPT2 executable and test the smoke test on a phone (Android 11+ for the evaluated AOSP build).
+- Integrate an on-device Java compiler, D8 and signing; prove an APK produced and installed on the phone without GitHub Actions/Bitrise.
+- Integrate Kotlin + Compose and resolve AndroidX dependencies for `TradingHelperAI`.
 - Pin downloadable toolchain archives with SHA-256 and present exact download sizes/permissions.
-- Test an actual `TradingHelperAI` Gradle build on the user's Android hardware.
+- Test an actual `TradingHelperAI` build on the user's Android hardware.
 - Add build failure reporting, upgrade signing, resumable artifact transfer and storage cleanup.
+
+Host-only checks with a Java runtime containing `jdk.compiler`:
+
+```sh
+java scripts/ValidateJava.java app/src/main/java/online/apkstudio/worker/*.java
+java scripts/RunBuildProfileTests.java app/src/main/java/online/apkstudio/worker/BuildProfile.java scripts/TestBuildProfile.java
+```
+
+Architecture researched against the [Android 10 executable-file restrictions](https://developer.android.com/about/versions/10/behavior-changes-10) and independent [AIDE-OS toolchain research](https://github.com/sanjarAmin/AIDE-OS/tree/main/tools). No third-party IDE code has been copied into APK Studio Worker, and any future dependency must comply with its license.
 
 The source protocol intentionally allows **only** `assembleDebug`, not arbitrary shell commands from the cloud. Android projects can contain Gradle scripts that execute commands as part of their build; the user should import only their own trusted source.
