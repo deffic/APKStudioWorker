@@ -60,12 +60,16 @@ final class LocalToolchain {
             ? "\n✕ AAPT2 пока не включён в APK Studio Worker."
             : "\n✓ Исполняемый AAPT2 найден в библиотеке приложения.");
 
-        File resourcePlatform = resourcePlatform(context, project);
-        message.append(resourcePlatform == null
-            ? "\n✕ Нет совместимой Android-платформы для AAPT2 (android.jar или framework-res.apk)."
-            : resourcePlatform.getName().equals("framework-res.apk")
-                ? "\n✓ Системные Android-ресурсы доступны для AAPT2 (диагностический режим)."
-                : "\n✓ Проверенный android.jar доступен для связывания ресурсов.");
+        if (project == null) {
+            message.append("\n○ Совместимость Android-платформы проверим после импорта проекта.");
+        } else {
+            File resourcePlatform = resourcePlatform(context, project);
+            message.append(resourcePlatform == null
+                ? "\n✕ Нет совместимой Android-платформы для AAPT2 (android.jar или framework-res.apk)."
+                : resourcePlatform.getName().equals("framework-res.apk")
+                    ? "\n✓ Системные Android-ресурсы доступны для AAPT2 (диагностический режим)."
+                    : "\n✓ Проверенный android.jar доступен для связывания ресурсов.");
+        }
 
         message.append("\n✕ In-process компилятор Java / D8 / apksig ещё не подключены.");
         if (project != null && project.needsKotlin()) {
