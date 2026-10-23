@@ -114,7 +114,12 @@ public final class MainActivity extends Activity {
         engineCard.addView(label("3 · ДВИЖОК СБОРКИ"));
         toolchainText = description("Проверяем инструменты Android…");
         engineCard.addView(toolchainText);
-        engineCard.addView(description("Версия 0.1: безопасная связь, импорт исходников и диагностика. Установка совместимого Android JDK / SDK / AAPT2 будет следующим этапом."));
+        engineCard.addView(description("Локальная проверка не загружает исходники на сервер. Для Kotlin и Compose требуется отдельная компиляция на телефоне."));
+        engineCard.addView(action("Проверить сборочный движок", MINT, NAVY, v -> inspectBuildEnvironment()));
+        engineCard.addView(action("Проверить ресурсы проекта (AAPT2)", Color.rgb(45, 67, 86), Color.WHITE,
+            v -> checkProjectResources()));
+        engineCard.addView(action("Проверить пакет компиляторов", Color.rgb(45, 67, 86), Color.WHITE,
+            v -> inspectCompilerPack()));
         root.addView(engineCard);
 
         LinearLayout controlCard = card();
@@ -141,6 +146,69 @@ public final class MainActivity extends Activity {
             refresh();
             alert("Телефон привязан. Теперь можно включить связь с APK Studio.");
         } catch (Exception failure) { alert("Не удалось подключить: " + failure.getMessage()); }
+    }
+
+    private void inspectBuildEnvironment() {
+        toolchainText.setText("Проверяем проект и инструменты на телефоне…");
+        jobs.execute(() -> {
+            String report;
+            try {
+                File project = ProjectStore.activeRoot(this);
+                BuildProfile profile = project == null ? null : BuildProfile.inspect(project);
+                report = (profile == null ? "Проект ещё не импортирован.\n\n"
+                    : profile.describe() + "\n\n") + LocalToolchain.readiness(this, profile)
+                    + "\n\n" + ToolPackCatalog.status(this);
+                if (LocalToolchain.nativeAapt2(this) != null) {
+                    try { report += "\n\n" + LocalToolchain.aapt2SelfTest(this); }
+                    catch (Exception error) { report += "\n\nОшибка теста AAPT2: " + error.getMessage(); }
+                }
+            } catch (Exception error) {
+                report = "Не удалось проверить сборку: " + error.getMessage();
+            }
+            String completedReport = report;
+            runOnUiThread(() -> { refresh(); alert(completedReport); });
+        });
+    }
+
+    private void inspectCompilerPack() {
+        jobs.execute(() -> {
+            String result;
+            try {
+                File installed = ToolPackCatalog.installBundled(this);
+                result = "Проверенный пакет инструментов установлен в закрытую папку телефона: "
+                    + installed.getName() + "\n\n" + ToolPackCatalog.status(this);
+            } catch (Exception failure) {
+                result = failure.getMessage() + "\n\n" + ToolPackCatalog.status(this);
+            }
+            String message = result;
+            runOnUiThread(() -> { refresh(); alert(message); });
+        });
+    }
+
+    private void checkProjectResources() {
+        toolchainText.setText("Проверяем ресурсы Android-проекта…");
+        jobs.execute(() -> {
+            String report;
+            try {
+                File project = ProjectStore.activeRoot(this);
+                File aapt2 = LocalToolchain.nativeAapt2(this);
+                if (project == null) throw new IllegalStateException("Сначала импортируй ZIP проекта TradingHelperAI.");
+                BuildProfile profile = BuildProfile.inspect(project);
+                File platform = LocalToolchain.resourcePlatform(this, profile);
+                if (aapt2 == null || platform == null) {
+                    throw new IllegalStateException("Компиляция ресурсов станет доступна после " +
+                        "включения AAPT2 и совместимой Android-платформы.\n\n" +
+                        LocalToolchain.readiness(this, profile));
+                }
+                File work = new File(getCacheDir(), "resources-" + java.util.UUID.randomUUID());
+                ResourceBuildStage.Result result = ResourceBuildStage.compileAndLink(
+                    project, aapt2, platform, work, new BoundedProcessRunner(aapt2));
+                report = result.summary() + "\n\nФайлы проверки: " + result.resourceApk.getName() +
+                    "\nЛог: " + result.log.substring(0, Math.min(result.log.length(), 5000));
+            } catch (Exception error) { report = "Проверка ресурсов: " + error.getMessage(); }
+            String message = report;
+            runOnUiThread(() -> { refresh(); alert(message); });
+        });
     }
 
     private void disconnect() {
