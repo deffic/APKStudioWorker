@@ -33,10 +33,11 @@ final class BuildProfile {
     final int minSdk;
     final int compileSdk;
     final String applicationId;
+    final String namespace;
 
     private BuildProfile(List<String> modules, int javaFiles, int kotlinFiles, int resourceFiles,
                          boolean kotlinPlugin, boolean compose, boolean gradleWrapper,
-                         int minSdk, int compileSdk, String applicationId) {
+                         int minSdk, int compileSdk, String applicationId, String namespace) {
         this.modules = Collections.unmodifiableList(new ArrayList<>(modules));
         this.javaFiles = javaFiles;
         this.kotlinFiles = kotlinFiles;
@@ -47,6 +48,7 @@ final class BuildProfile {
         this.minSdk = minSdk;
         this.compileSdk = compileSdk;
         this.applicationId = applicationId;
+        this.namespace = namespace;
     }
 
     boolean needsKotlin() { return kotlinPlugin || kotlinFiles > 0 || compose; }
@@ -78,6 +80,7 @@ final class BuildProfile {
         int minSdk = 0;
         int compileSdk = 0;
         String applicationId = "";
+        String namespace = "";
         List<String> moduleNames = new ArrayList<>();
 
         for (File module : modules) {
@@ -92,7 +95,7 @@ final class BuildProfile {
             if (minSdk == 0) minSdk = readNumber(script, "minSdk(?:Version)?\\s*(?:=\\s*|\\(\\s*|\\s+)(\\d+)");
             if (compileSdk == 0) compileSdk = readNumber(script, "compileSdk(?:Version)?\\s*(?:=\\s*|\\(\\s*|\\s+)(\\d+)");
             if (applicationId.isEmpty()) applicationId = readIdentifier(script, "applicationId\\s*(?:=\\s*|\\(\\s*|\\s+)[\"']([a-zA-Z][a-zA-Z0-9_.]+)[\"']");
-            if (applicationId.isEmpty()) applicationId = readIdentifier(script, "namespace\\s*(?:=\\s*|\\(\\s*|\\s+)[\"']([a-zA-Z][a-zA-Z0-9_.]+)[\"']");
+            if (namespace.isEmpty()) namespace = readIdentifier(script, "namespace\\s*(?:=\\s*|\\(\\s*|\\s+)[\"']([a-zA-Z][a-zA-Z0-9_.]+)[\"']");
 
             File sourceRoot = new File(module, "src/main");
             if (!sourceRoot.isDirectory()) continue;
@@ -113,13 +116,17 @@ final class BuildProfile {
         if (javaFiles + kotlinFiles + resources > MAX_SOURCE_FILES) {
             throw new IOException("Слишком много исходных файлов.");
         }
+        if (applicationId.isEmpty()) applicationId = namespace;
+        if (namespace.isEmpty()) namespace = applicationId;
         return new BuildProfile(moduleNames, javaFiles, kotlinFiles, resources,
             kotlin, compose, new File(project, "gradlew").isFile(), minSdk, compileSdk,
-            applicationId.isEmpty() ? "Не определён" : applicationId);
+            applicationId.isEmpty() ? "Не определён" : applicationId,
+            namespace.isEmpty() ? "Не определён" : namespace);
     }
 
     String describe() {
         return "Проект: " + applicationId + "\n" +
+            "Namespace для R.java: " + namespace + "\n" +
             "Модули: " + String.join(", ", modules) + "\n" +
             "Java: " + javaFiles + " · Kotlin: " + kotlinFiles + "\n" +
             "Ресурсы: " + resourceFiles + "\n" +
