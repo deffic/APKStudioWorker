@@ -116,6 +116,8 @@ public final class MainActivity extends Activity {
         engineCard.addView(toolchainText);
         engineCard.addView(description("Локальная проверка не загружает исходники на сервер. Для Kotlin и Compose требуется отдельная компиляция на телефоне."));
         engineCard.addView(action("Проверить сборочный движок", MINT, NAVY, v -> inspectBuildEnvironment()));
+        engineCard.addView(action("Проверить пакет компиляторов", Color.rgb(45, 67, 86), Color.WHITE,
+            v -> inspectCompilerPack()));
         root.addView(engineCard);
 
         LinearLayout controlCard = card();
@@ -152,7 +154,8 @@ public final class MainActivity extends Activity {
                 File project = ProjectStore.activeRoot(this);
                 BuildProfile profile = project == null ? null : BuildProfile.inspect(project);
                 report = (profile == null ? "Проект ещё не импортирован.\n\n"
-                    : profile.describe() + "\n\n") + LocalToolchain.readiness(this, profile);
+                    : profile.describe() + "\n\n") + LocalToolchain.readiness(this, profile)
+                    + "\n\n" + ToolPackCatalog.status(this);
                 if (LocalToolchain.nativeAapt2(this) != null) {
                     try { report += "\n\n" + LocalToolchain.aapt2SelfTest(this); }
                     catch (Exception error) { report += "\n\nОшибка теста AAPT2: " + error.getMessage(); }
@@ -162,6 +165,21 @@ public final class MainActivity extends Activity {
             }
             String completedReport = report;
             runOnUiThread(() -> { refresh(); alert(completedReport); });
+        });
+    }
+
+    private void inspectCompilerPack() {
+        jobs.execute(() -> {
+            String result;
+            try {
+                File installed = ToolPackCatalog.installBundled(this);
+                result = "Проверенный пакет инструментов установлен в закрытую папку телефона: "
+                    + installed.getName() + "\n\n" + ToolPackCatalog.status(this);
+            } catch (Exception failure) {
+                result = failure.getMessage() + "\n\n" + ToolPackCatalog.status(this);
+            }
+            String message = result;
+            runOnUiThread(() -> { refresh(); alert(message); });
         });
     }
 
